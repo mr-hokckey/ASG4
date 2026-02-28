@@ -4,7 +4,9 @@ var VSHADER_SOURCE = `
     precision mediump float;
     attribute vec4 a_Position;
     attribute vec2 a_UV;
+    attribute vec3 a_Normal;
     varying vec2 v_UV;
+    varying vec3 v_Normal;
     uniform mat4 u_ModelMatrix;
     uniform mat4 u_GlobalRotateMatrix;
     uniform mat4 u_ViewMatrix;
@@ -12,18 +14,23 @@ var VSHADER_SOURCE = `
     void main() {
         gl_Position = u_ProjectionMatrix * u_ViewMatrix * u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
         v_UV = a_UV;
+        v_Normal = a_Normal;
     }`;
 
 // Fragment shader program
 var FSHADER_SOURCE = `
     precision mediump float;
     varying vec2 v_UV;
+    varying vec3 v_Normal;
     uniform vec4 u_FragColor;
     uniform sampler2D u_Sampler0;
     uniform sampler2D u_Sampler1;
     uniform int u_WhichTexture;
     void main() {
-        if (u_WhichTexture == -2) {                         // Use Color
+        if (u_WhichTexture == -3) {                         // Use Normal
+            gl_FragColor = vec4((v_Normal + 1.0) / 2.0, 1.0);
+
+        } else if (u_WhichTexture == -2) {                  // Use Color
             gl_FragColor = u_FragColor;
 
         } else if (u_WhichTexture == -1) {                  // Use UV Debug Color
@@ -49,6 +56,7 @@ let canvas;
 let gl;
 let a_Position;
 let a_UV;
+let a_Normal;
 let u_FragColor;
 let u_ModelMatrix;
 let u_GlobalRotateMatrix;
@@ -93,6 +101,13 @@ function connectVariablesToGLSL() {
     a_UV = gl.getAttribLocation(gl.program, 'a_UV');
     if (a_UV < 0) {
         console.log('Failed to get the storage location of a_UV');
+        return;
+    }
+
+    // Get the storage location of a_Normal
+    a_Normal = gl.getAttribLocation(gl.program, 'a_Normal');
+    if (a_Normal < 0) {
+        console.log('Failed to get the storage location of a_Normal');
         return;
     }
 
@@ -172,24 +187,7 @@ let g_startFlying = 0;
 let g_hummingbirds = [];
 let g_walls = [];
 
-let g_map = [
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-];
+let g_normalOn = false;
 
 function tick() {
     g_seconds = performance.now() / 1000.0 - g_startTime;
@@ -201,6 +199,8 @@ function tick() {
 
 
 function addActionsForHtmlUI() {
+    document.getElementById("button_normalOn").onclick = function () { g_normalOn = true; };
+    document.getElementById("button_normalOff").onclick = function () { g_normalOn = false; };
     document.getElementById("slider_rotation").addEventListener('mousemove', function () {
         // g_animalGlobalRotation.setRotate(this.value, 0, 1, 0);
         // gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, g_animalGlobalRotation.elements);
@@ -363,10 +363,12 @@ function renderAllShapes() {
     ground.render();
 
     // Made skybox smaller for a more contained room
+    // ...and did the negative scale trick for better normals :)
     var sky = new Cube();
     sky.color = [0.53, 0.81, 0.98, 1];
+    if (g_normalOn) sky.textureNum = -3;
     sky.matrix = new Matrix4();
-    sky.matrix.scale(30,30,30);
+    sky.matrix.scale(-30,-30,-30);
     sky.matrix.translate(-0.5, -0.5, -0.5);
     sky.render();
 
@@ -406,6 +408,7 @@ function renderAllShapes() {
 function drawTree(x, z) {
     var trunk = new Cube();
     trunk.color = [0.82, 0.41, 0.12, 1.0];
+    if (g_normalOn) trunk.textureNum = -3;
     trunk.matrix = new Matrix4();
     trunk.matrix.translate(x, -1, z);
     trunk.matrix.scale(2, 2, 2);
@@ -415,6 +418,7 @@ function drawTree(x, z) {
     var leaves = new Cube();
     leaves.matrix = new Matrix4();
     leaves.textureNum = 1;
+    if (g_normalOn) leaves.textureNum = -3;
     leaves.matrix.translate(x, 1, z);
     leaves.matrix.scale(3, 3, 3);
     leaves.matrix.translate(-0.5, 0, -0.5);
@@ -424,6 +428,7 @@ function drawTree(x, z) {
 function drawHummingbird(x, y, z) {
     var body = new Cube();
     body.color = [0, 0.5, 0.5, 1];
+    if (g_normalOn) body.textureNum = -3;
     body.matrix = new Matrix4();
     body.matrix.translate(x, y, z);
     body.matrix.rotate(-45, 0, 0, 1);
@@ -433,6 +438,7 @@ function drawHummingbird(x, y, z) {
 
     var head = new Cube();
     head.color = [0, 0.2, 0.8, 1];
+    if (g_normalOn) head.textureNum = -3;
     head.matrix = new Matrix4();
     head.matrix.translate(x, y, z);
     head.matrix.rotate(60, 0, 0, 1);
@@ -445,6 +451,7 @@ function drawHummingbird(x, y, z) {
 
     var beak = new Cube();
     beak.color = [1, 0.5, 0, 1];
+    if (g_normalOn) beak.textureNum = -3;
     beak.matrix = headCoordinatesMat;
     beak.matrix.rotate(-45, 0, 0, 1);
     beak.matrix.translate(g_beakSize / 2, 0, 0);
@@ -457,6 +464,7 @@ function drawHummingbird(x, y, z) {
     // 3 parts. So I took some creative liberties.
     var flower = new Cube();
     flower.color = [1, 0, 0, 1];
+    if (g_normalOn) flower.textureNum = -3;
     flower.matrix = beakCoordinatesMat;
     flower.matrix.translate(0.7, 0, 0);
     flower.matrix.scale(0.2, 2, 2);
@@ -465,6 +473,7 @@ function drawHummingbird(x, y, z) {
 
     var wingLeft = new Cube();
     wingLeft.color = [0, 0.5, 0.25, 1];
+    if (g_normalOn) wingLeft.textureNum = -3;
     wingLeft.matrix = new Matrix4();
     wingLeft.matrix.translate(x, y, z);
     wingLeft.matrix.rotate(45, 0, 0, 1);
@@ -481,6 +490,7 @@ function drawHummingbird(x, y, z) {
 
     var wingRight = new Cube();
     wingRight.color = [0, 0.5, 0.25, 1];
+    if (g_normalOn) wingRight.textureNum = -3;
     wingRight.matrix = new Matrix4();
     wingRight.matrix.translate(x, y, z);
     wingRight.matrix.rotate(45, 0, 0, 1);
@@ -497,6 +507,7 @@ function drawHummingbird(x, y, z) {
 
     var footLeft = new Cube();
     footLeft.color = [0.2, 0.2, 0.2, 1];
+    if (g_normalOn) footLeft.textureNum = -3;
     footLeft.matrix = new Matrix4();
     footLeft.matrix.translate(x, y, z);
     footLeft.matrix.translate(0, -0.3, 0.1);
@@ -507,6 +518,7 @@ function drawHummingbird(x, y, z) {
 
     var footRight = new Cube();
     footRight.color = [0.2, 0.2, 0.2, 1];
+    if (g_normalOn) footRight.textureNum = -3;
     footRight.matrix = new Matrix4();
     footRight.matrix.translate(x, y, z);
     footRight.matrix.translate(0, -0.3, -0.1);
@@ -517,6 +529,7 @@ function drawHummingbird(x, y, z) {
 
     var tail = new Cube();
     tail.color = [0.9, 0.9, 0.9, 1];
+    if (g_normalOn) tail.textureNum = -3;
     tail.matrix = new Matrix4();
     tail.matrix.translate(x, y, z);
     tail.matrix.rotate(-45, 0, 0, 1);
