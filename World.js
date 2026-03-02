@@ -39,7 +39,7 @@ var FSHADER_SOURCE = `
         } else if (u_WhichTexture == 0) {                   // Use texture0
             gl_FragColor = texture2D(u_Sampler0, v_UV);
 
-        } else if (u_WhichTexture == 1) {                   // Use texture0
+        } else if (u_WhichTexture == 1) {                   // Use texture1
             gl_FragColor = texture2D(u_Sampler1, v_UV);
 
         } else {                                            // Error - use red
@@ -399,6 +399,15 @@ function renderAllShapes() {
             drawHummingbird(g_hummingbirds[i][0], g_hummingbirds[i][1], g_hummingbirds[i][2]);
         }
     }
+
+    var sphere = new Sphere();
+    sphere.color = [1,1,1,1];
+    sphere.textureNum = 1;
+    if (g_normalOn) sphere.textureNum = -3;
+    sphere.matrix = new Matrix4();
+    sphere.matrix.translate(0, 4, -5);
+    sphere.matrix.scale(3,3,3);
+    sphere.render();
 
     // performance
     var duration = performance.now() - startTime;
