@@ -7,6 +7,7 @@ var VSHADER_SOURCE = `
     attribute vec3 a_Normal;
     varying vec2 v_UV;
     varying vec3 v_Normal;
+    varying vec4 v_VertPos;
     uniform mat4 u_ModelMatrix;
     uniform mat4 u_GlobalRotateMatrix;
     uniform mat4 u_ViewMatrix;
@@ -15,6 +16,7 @@ var VSHADER_SOURCE = `
         gl_Position = u_ProjectionMatrix * u_ViewMatrix * u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
         v_UV = a_UV;
         v_Normal = a_Normal;
+        v_VertPos = u_ModelMatrix * a_Position;
     }`;
 
 // Fragment shader program
@@ -26,6 +28,8 @@ var FSHADER_SOURCE = `
     uniform sampler2D u_Sampler0;
     uniform sampler2D u_Sampler1;
     uniform int u_WhichTexture;
+    uniform vec3 u_LightPos;
+    varying vec4 v_VertPos;
     void main() {
         if (u_WhichTexture == -3) {                         // Use Normal
             gl_FragColor = vec4((v_Normal + 1.0) / 2.0, 1.0);
@@ -44,6 +48,14 @@ var FSHADER_SOURCE = `
 
         } else {                                            // Error - use red
             gl_FragColor = vec4(1, 0.2, 0.2, 1);
+        }
+
+        vec3 lightVector = vec3(v_VertPos) - u_LightPos;
+        float r = length(lightVector);
+        if (r < 1.0) {
+            gl_FragColor = vec4(1,0,0,1);
+        } else if (r < 2.0) {
+            gl_FragColor = vec4(0,1,0,1);
         }
 
         // gl_FragColor = u_FragColor;
@@ -166,6 +178,13 @@ function connectVariablesToGLSL() {
         console.log('Failed to get the storage location of u_WhichTexture');
         return;
     }
+
+    // Get the storage location of u_LightPos
+    u_LightPos = gl.getUniformLocation(gl.program, 'u_LightPos');
+    if (!u_LightPos) {
+        console.log('Failed to get the storage location of u_LightPos');
+        return;
+    }
 }
 
 let g_animalGlobalRotation = new Matrix4();
@@ -188,6 +207,8 @@ let g_hummingbirds = [];
 let g_walls = [];
 
 let g_normalOn = false;
+
+let g_lightPos = [0, 0, 0];
 
 function tick() {
     g_seconds = performance.now() / 1000.0 - g_startTime;
@@ -212,6 +233,10 @@ function addActionsForHtmlUI() {
     document.getElementById("slider_beakSize").addEventListener('mousemove', function () { g_beakSize = this.value / 10; renderAllShapes(); });
 
     document.getElementById("checkbox_animation").addEventListener('change', function () { g_wingAnimation = !g_wingAnimation; renderAllShapes(); });
+
+    document.getElementById("slider_lightX").addEventListener('mousemove', function () { g_lightPos[0] = this.value / 20; renderAllShapes(); });
+    document.getElementById("slider_lightY").addEventListener('mousemove', function () { g_lightPos[1] = this.value / 20; renderAllShapes(); });
+    document.getElementById("slider_lightZ").addEventListener('mousemove', function () { g_lightPos[2] = this.value / 20; renderAllShapes(); });
 }
 
 // dirt texture: https://www.deviantart.com/fabooguy/art/Dirt-Ground-Texture-Tileable-2048x2048-441212191
@@ -405,9 +430,19 @@ function renderAllShapes() {
     sphere.textureNum = 1;
     if (g_normalOn) sphere.textureNum = -3;
     sphere.matrix = new Matrix4();
-    sphere.matrix.translate(0, 4, -5);
+    sphere.matrix.translate(0, 4, -15);
     sphere.matrix.scale(3,3,3);
     sphere.render();
+
+    gl.uniform3f(u_LightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+
+    var light = new Cube();
+    light.color = [2,2,0,1];
+    light.matrix = new Matrix4();
+    light.matrix.translate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+    light.matrix.scale(0.1, 0.1, 0.1);
+    light.matrix.translate(-0.5, -0.5, -0.5);
+    light.render();
 
     // performance
     var duration = performance.now() - startTime;
