@@ -23,13 +23,23 @@
 
     <p></p>
 
-    <input type="checkbox" id="checkbox_dvd" checked> Toggle DVD logo bouncing light :)
+    <input type="checkbox" id="checkbox_dvd"> Toggle DVD logo bouncing light :)
+
+    <p></p>
+
+    <input type="checkbox" id="checkbox_lightOn" checked> Toggle Light
 
     <p></p>
 
     Light X <input type="range" min="-250" max="250" value="0" class="slider" id="slider_lightX">
     Light Y <input type="range" min="-250" max="250" value="0" class="slider" id="slider_lightY">
     Light Z <input type="range" min="-250" max="250" value="0" class="slider" id="slider_lightZ">
+    
+    <p></p>
+    
+    Light Color R <input type="range" min="0" max="20" value="20" class="slider" id="slider_lightR">
+    Light Color G <input type="range" min="0" max="20" value="20" class="slider" id="slider_lightG">
+    Light Color B <input type="range" min="0" max="20" value="20" class="slider" id="slider_lightB">
     
     <p></p>
 
@@ -57,6 +67,7 @@
     </div>
     <p></p>
     Press SPACE to place down a hummingbird. Once you place 5, they will start to fly!
+    Also, I definitely would've tried to add in Normal Matrix for the hummingbirds to look better in lighting, but I ran out of time.
 
     <script src="lib/webgl-utils.js"></script>
     <script src="lib/webgl-debug.js"></script>

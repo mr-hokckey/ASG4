@@ -29,7 +29,10 @@ var FSHADER_SOURCE = `
     uniform sampler2D u_Sampler1;
     uniform int u_WhichTexture;
     uniform vec3 u_LightPos;
+    uniform vec3 u_CameraPos;
     varying vec4 v_VertPos;
+    uniform bool u_LightOn;
+    uniform vec3 u_LightColor;
     void main() {
         if (u_WhichTexture == -3) {                         // Use Normal
             gl_FragColor = vec4((v_Normal + 1.0) / 2.0, 1.0);
@@ -50,17 +53,39 @@ var FSHADER_SOURCE = `
             gl_FragColor = vec4(1, 0.2, 0.2, 1);
         }
 
-        vec3 lightVector = vec3(v_VertPos) - u_LightPos;
+        vec3 lightVector = u_LightPos - vec3(v_VertPos);
         float r = length(lightVector);
-        if (r < 1.0) {
-            gl_FragColor = vec4(1,0,0,1);
-        } else if (r < 2.0) {
-            gl_FragColor = vec4(0,1,0,1);
-        }
+        // if (r < 1.0) {
+        //     gl_FragColor = vec4(1,0,0,1);
+        // } else if (r < 2.0) {
+        //     gl_FragColor = vec4(0,1,0,1);
+        // }
 
-        // gl_FragColor = u_FragColor;
-        // gl_FragColor = vec4(v_UV,1.0,1.0);
-        // gl_FragColor = texture2D(u_Sampler0, v_UV);
+        // gl_FragColor = vec4(vec3(gl_FragColor) / (r*r), 1);
+
+        // N dot L
+        vec3 L = normalize(lightVector);
+        vec3 N = normalize(v_Normal);
+        float nDotL = max(dot(N, L), 0.0);
+
+        // Reflection
+        vec3 R = reflect(-L, N);
+
+        // Eye
+        vec3 E = normalize(u_CameraPos - vec3(v_VertPos));
+
+        // Specular
+        float specular = pow(max(dot(E, R), 0.0), 60.0);
+
+        vec3 diffuse = u_LightColor * vec3(gl_FragColor) * nDotL * 0.7;
+        vec3 ambient = vec3(gl_FragColor) * 0.1;
+        if (u_LightOn) {
+            if (u_WhichTexture == 0 || u_WhichTexture == 1) {
+                gl_FragColor = vec4(specular + diffuse + ambient, 1.0);
+            } else { 
+                gl_FragColor = vec4(diffuse + ambient, 1.0);
+            }
+        }
     }`;
 
 // Global variables
@@ -77,6 +102,10 @@ let u_ProjectionMatrix;
 let u_Sampler0;
 let u_Sampler1;
 let u_WhichTexture;
+let u_LightPos;
+let u_CameraPos;
+let u_LightOn;
+let u_LightColor;
 
 // get the canvas and gl context
 function setupWebGL() {
@@ -185,6 +214,27 @@ function connectVariablesToGLSL() {
         console.log('Failed to get the storage location of u_LightPos');
         return;
     }
+
+    // Get the storage location of u_CameraPos
+    u_CameraPos = gl.getUniformLocation(gl.program, 'u_CameraPos');
+    if (!u_CameraPos) {
+        console.log('Failed to get the storage location of u_CameraPos');
+        return;
+    }
+
+    // Get the storage location of u_LightOn
+    u_LightOn = gl.getUniformLocation(gl.program, 'u_LightOn');
+    if (!u_LightOn) {
+        console.log('Failed to get the storage location of u_LightOn');
+        return;
+    }
+
+    // Get the storage location of u_LightColor
+    u_LightColor = gl.getUniformLocation(gl.program, 'u_LightColor');
+    if (!u_LightColor) {
+        console.log('Failed to get the storage location of u_LightColor');
+        return;
+    }
 }
 
 let g_animalGlobalRotation = new Matrix4();
@@ -211,7 +261,9 @@ let g_normalOn = false;
 let g_lightPos = [0, 0, 0];
 let g_sliderPos = [0, 0, 0];
 let g_dvdPos = [0, 0, 0];
-let g_dvdAnimation = true;
+let g_dvdAnimation = false;
+let g_lightOn = true;
+let g_lightColor = [1.0, 1.0, 1.0];
 
 function tick() {
     g_seconds = performance.now() / 1000.0 - g_startTime;
@@ -239,10 +291,15 @@ function addActionsForHtmlUI() {
 
     document.getElementById("checkbox_animation").addEventListener('change', function () { g_wingAnimation = !g_wingAnimation; renderAllShapes(); });
     document.getElementById("checkbox_dvd").addEventListener('change', function () { g_dvdAnimation = !g_dvdAnimation; renderAllShapes(); });
+    document.getElementById("checkbox_lightOn").addEventListener('change', function () { g_lightOn = !g_lightOn; renderAllShapes(); });
 
     document.getElementById("slider_lightX").addEventListener('mousemove', function () { g_sliderPos[0] = this.value / 20; renderAllShapes(); });
     document.getElementById("slider_lightY").addEventListener('mousemove', function () { g_sliderPos[1] = this.value / 20; renderAllShapes(); });
     document.getElementById("slider_lightZ").addEventListener('mousemove', function () { g_sliderPos[2] = this.value / 20; renderAllShapes(); });
+
+    document.getElementById("slider_lightR").addEventListener('mousemove', function () { g_lightColor[0] = this.value / 20; renderAllShapes(); });
+    document.getElementById("slider_lightG").addEventListener('mousemove', function () { g_lightColor[1] = this.value / 20; renderAllShapes(); });
+    document.getElementById("slider_lightB").addEventListener('mousemove', function () { g_lightColor[2] = this.value / 20; renderAllShapes(); });
 }
 
 // dirt texture: https://www.deviantart.com/fabooguy/art/Dirt-Ground-Texture-Tileable-2048x2048-441212191
@@ -436,17 +493,23 @@ function renderAllShapes() {
     sphere.textureNum = 1;
     if (g_normalOn) sphere.textureNum = -3;
     sphere.matrix = new Matrix4();
-    sphere.matrix.translate(0, 4, -15);
+    sphere.matrix.translate(0, 4, -9);
     sphere.matrix.scale(3,3,3);
     sphere.render();
 
     gl.uniform3f(u_LightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
 
+    gl.uniform3f(u_CameraPos, g_camera.eye.elements[0], g_camera.eye.elements[1], g_camera.eye.elements[2]);
+
+    gl.uniform1i(u_LightOn, g_lightOn);
+
+    gl.uniform3f(u_LightColor, g_lightColor[0], g_lightColor[1], g_lightColor[2]);
+
     var light = new Cube();
     light.color = [2,2,0,1];
     light.matrix = new Matrix4();
     light.matrix.translate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
-    // light.matrix.scale(0.1, 0.1, 0.1);
+    light.matrix.scale(-0.1, -0.1, -0.1);
     light.matrix.translate(-0.5, -0.5, -0.5);
     light.render();
 
