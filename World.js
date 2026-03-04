@@ -209,6 +209,7 @@ let g_walls = [];
 let g_normalOn = false;
 
 let g_lightPos = [0, 0, 0];
+let g_sliderPos = [0, 0, 0];
 let g_dvdPos = [0, 0, 0];
 let g_dvdAnimation = true;
 
@@ -239,9 +240,9 @@ function addActionsForHtmlUI() {
     document.getElementById("checkbox_animation").addEventListener('change', function () { g_wingAnimation = !g_wingAnimation; renderAllShapes(); });
     document.getElementById("checkbox_dvd").addEventListener('change', function () { g_dvdAnimation = !g_dvdAnimation; renderAllShapes(); });
 
-    document.getElementById("slider_lightX").addEventListener('mousemove', function () { g_lightPos[0] = this.value / 20; renderAllShapes(); });
-    document.getElementById("slider_lightY").addEventListener('mousemove', function () { g_lightPos[1] = this.value / 20; renderAllShapes(); });
-    document.getElementById("slider_lightZ").addEventListener('mousemove', function () { g_lightPos[2] = this.value / 20; renderAllShapes(); });
+    document.getElementById("slider_lightX").addEventListener('mousemove', function () { g_sliderPos[0] = this.value / 20; renderAllShapes(); });
+    document.getElementById("slider_lightY").addEventListener('mousemove', function () { g_sliderPos[1] = this.value / 20; renderAllShapes(); });
+    document.getElementById("slider_lightZ").addEventListener('mousemove', function () { g_sliderPos[2] = this.value / 20; renderAllShapes(); });
 }
 
 // dirt texture: https://www.deviantart.com/fabooguy/art/Dirt-Ground-Texture-Tileable-2048x2048-441212191
@@ -456,12 +457,16 @@ function renderAllShapes() {
 
 // I decided to animate the light as if it were a bouncing DVD logo :)
 function dvdLogoAnimation() {
+    g_lightPos[0] = g_sliderPos[0];
+    g_lightPos[1] = g_sliderPos[1];
+    g_lightPos[2] = g_sliderPos[2];
+
     if (g_dvdAnimation) {
         g_dvdPos[0] = 16 * Math.abs(((g_seconds/16) % 2) - 1) - 16 / 2;
-        g_lightPos[0] = g_dvdPos[0];
+        g_lightPos[0] += g_dvdPos[0];
 
         g_dvdPos[1] = 9 * Math.abs(((g_seconds/9) % 2) - 1);
-        g_lightPos[1] = g_dvdPos[1];
+        g_lightPos[1] += g_dvdPos[1];
     }
 }
 
