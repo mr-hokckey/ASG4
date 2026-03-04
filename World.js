@@ -209,9 +209,13 @@ let g_walls = [];
 let g_normalOn = false;
 
 let g_lightPos = [0, 0, 0];
+let g_dvdPos = [0, 0, 0];
+let g_dvdAnimation = true;
 
 function tick() {
     g_seconds = performance.now() / 1000.0 - g_startTime;
+
+    dvdLogoAnimation();
 
     renderAllShapes();
 
@@ -233,6 +237,7 @@ function addActionsForHtmlUI() {
     document.getElementById("slider_beakSize").addEventListener('mousemove', function () { g_beakSize = this.value / 10; renderAllShapes(); });
 
     document.getElementById("checkbox_animation").addEventListener('change', function () { g_wingAnimation = !g_wingAnimation; renderAllShapes(); });
+    document.getElementById("checkbox_dvd").addEventListener('change', function () { g_dvdAnimation = !g_dvdAnimation; renderAllShapes(); });
 
     document.getElementById("slider_lightX").addEventListener('mousemove', function () { g_lightPos[0] = this.value / 20; renderAllShapes(); });
     document.getElementById("slider_lightY").addEventListener('mousemove', function () { g_lightPos[1] = this.value / 20; renderAllShapes(); });
@@ -440,13 +445,24 @@ function renderAllShapes() {
     light.color = [2,2,0,1];
     light.matrix = new Matrix4();
     light.matrix.translate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
-    light.matrix.scale(0.1, 0.1, 0.1);
+    // light.matrix.scale(0.1, 0.1, 0.1);
     light.matrix.translate(-0.5, -0.5, -0.5);
     light.render();
 
     // performance
     var duration = performance.now() - startTime;
     sendTextToHTML("ms: " + Math.floor(duration) + " fps: " + Math.floor(10000/duration), "text_performance");
+}
+
+// I decided to animate the light as if it were a bouncing DVD logo :)
+function dvdLogoAnimation() {
+    if (g_dvdAnimation) {
+        g_dvdPos[0] = 16 * Math.abs(((g_seconds/16) % 2) - 1) - 16 / 2;
+        g_lightPos[0] = g_dvdPos[0];
+
+        g_dvdPos[1] = 9 * Math.abs(((g_seconds/9) % 2) - 1);
+        g_lightPos[1] = g_dvdPos[1];
+    }
 }
 
 function drawTree(x, z) {
